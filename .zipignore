@@ -1,0 +1,7 @@
+.git/*
+.gitignore
+.zipignore
+.env
+.env.local
+*.swp
+create_lambda_package.sh
