@@ -2,6 +2,6 @@
   "dependencies": {
     "axios": "^0.26.1",
     "dotenv": "^16.0.0",
-    "kilometrikisa-client": "^0.13.3"
+    "kilometrikisa-client": "^0.13.4"
   }
 }
