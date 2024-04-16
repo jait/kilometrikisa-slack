@@ -1,7 +1,25 @@
 {
+  "name": "km",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
   "dependencies": {
-    "axios": "^0.26.1",
-    "dotenv": "^16.0.0",
+    "@azure/functions": "^4.0.0",
+    "axios": "^1.6.8",
+    "dotenv": "^16.4.5",
     "kilometrikisa-client": "^0.13.4"
-  }
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "rimraf": "^5.0.0",
+    "typescript": "^4.0.0"
+  },
+  "main": "dist/src/functions/*.js"
 }

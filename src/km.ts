@@ -1,32 +1,51 @@
 
-const km = require('kilometrikisa-client');
 const axios = require('axios');
-const settings = require('./settings');
+import { getTeamStatistics, kilometrikisaSession, getLatestContest, TeamStatistics, TeamSeries } from "kilometrikisa-client";
+import settings from "./settings";
 
+const seriesNames = {[TeamSeries.SMALL]: "Piensarja", [TeamSeries.EBIKE]: "Sähkösarja"};
 
-const seriesNames = {"small": "Piensarja", "electric": "Sähkösarja"};
+type MessageData = {
+	[key: string]: any;
+};
 
-async function postMessage(messageData) {
-	//console.log(JSON.stringify(messageData));
+type LoggingContext = {
+	log: (message: string) => void;
+	warn: (message: string) => void;
+	error: (message: string) => void;
+};
+
+async function postToSlack(messageData: MessageData) {
+	console.log(JSON.stringify(messageData));
+	console.log(settings.SLACK_WEBHOOK_URL);
+	if (!settings.SLACK_WEBHOOK_URL) {
+		console.warn("No Slack webhook URL set, not posting message");
+		return;
+	}
 	await axios.post(settings.SLACK_WEBHOOK_URL, messageData);
 }
 
-function formatFloat(value) {
+function formatFloat(value: number) {
 	return value.toLocaleString(settings.SLACK_LOCALE);
 }
 
-function formatSeries(seriesData) {
+type MessageField = {
+	type: string;
+	text: string;
+};
+
+function formatSeries(seriesData: TeamStatistics): MessageField | null {
 	const seriesName = seriesNames[seriesData.series];
 	if (!seriesName) {
 		return null;
 	}
 	return {
 		"type": "mrkdwn",
-		"text": `*${seriesName}*\nSijoitus: *${seriesData.seriesPlacement}*\nJoukkueen keskiarvo: *${formatFloat(seriesData.distancePerPerson)} km*\nKilometrit yhteensä: *${formatFloat(seriesData.totalDistance)}*`
+		"text": `*${seriesName}*\nSijoitus: *${seriesData.seriesPlacement || "-"}*\nJoukkueen keskiarvo: *${formatFloat(seriesData.distancePerPerson)} km*\nKilometrit yhteensä: *${formatFloat(seriesData.totalDistance)}*`
 	};
 }
 
-function formatTeamData(teamData) {
+function formatTeamData(teamData: TeamStatistics[]): MessageData {
 	return {
 		"blocks": [
 			{
@@ -37,7 +56,7 @@ function formatTeamData(teamData) {
 				"type": "section",
 				"text": {
 					"type": "mrkdwn",
-					"text": "<https://www.kilometrikisa.fi/teams/boogie-bike/>"
+					"text": `<https://www.kilometrikisa.fi/teams/${settings.TEAM_SLUG}/>`
 				}
 			}
 		]
@@ -51,34 +70,46 @@ function formatTopCyclistMessage(topCyclist) {
 	};
 }
 
-async function postTeamStats() {
-	const teamData = await km.getTeamStatistics(settings.TEAM_SLUG);
-	//console.log(teamData);
-	//console.log(formatTeamData(teamData));
+export async function postTeamStats(context: LoggingContext) {
+	let teamData : TeamStatistics[];
+	try {
+		teamData = await getTeamStatistics(settings.TEAM_SLUG);
+	} catch (e) {
+		context.error(`Failed to get team statistics for ${settings.TEAM_SLUG}`);
+		context.error(e);
+		return;
+	}
 	if (teamData) {
-		await postMessage(formatTeamData(teamData));
+		try {
+			await postToSlack(formatTeamData(teamData));
+			context.log("Team statistics posted to Slack");
+		} catch (e) {
+			context.error("Failed to post to Slack");
+			context.error(e);
+		}
 	}
 	else {
-		console.warn(`No team data for ${settings.TEAM_SLUG}`);
+		context.warn(`No team data for ${settings.TEAM_SLUG}`);
 	};
+	return teamData;
 }
 
-async function postTopCyclist() {
-	const session = await km.kilometrikisaSession({username: settings.KMKISA_USERNAME, password: settings.KMKISA_PASSWORD});
-	const contest = await km.getLatestContest();
+export async function postTopCyclist() {
+	const session = await kilometrikisaSession({username: settings.KMKISA_USERNAME, password: settings.KMKISA_PASSWORD});
+	const contest = await getLatestContest();
 	const currentStats = await session.getTeamMemberStatistics(settings.TEAM_SLUG, contest.slug);
 	//console.log(JSON.stringify(currentStats));
 	// fetch previous stats from somewhere
-	previousStats = {};
+	let previousStats = {};
 	// save currentStats somewhere
 	const topCyclist = getTopCyclist(currentStats, previousStats);
 	console.log(topCyclist);
-	await postMessage(formatTopCyclistMessage(topCyclist));
+	await postToSlack(formatTopCyclistMessage(topCyclist));
 }
 
 function getTopCyclist(currentStats, previousStats) {
-	let regKmByName = {};
-	let eKmByName = {};
+	let regKmByName: {[key: string]: number} = {};
+	let eKmByName: {[key: string]: number} = {};
 	let topCyclist;
 	let topDistance = 0;
 
@@ -109,7 +140,7 @@ function getTopCyclist(currentStats, previousStats) {
 
 	// secret rating algorithm
 	for (const [name, km] of Object.entries(regKmByName)) {
-		let dist = km + eKmByName[name] / 2;
+		const dist = km + eKmByName[name] / 2;
 		if (dist > topDistance) {
 			topCyclist = name;
 			topDistance = dist;
@@ -117,6 +148,3 @@ function getTopCyclist(currentStats, previousStats) {
 	}
 	return {name: topCyclist, adjustedDistance: topDistance, distanceByRegularBike: regKmByName[topCyclist], distanceByEbike: eKmByName[topCyclist]};
 }
-
-exports.postTeamStats = postTeamStats;
-exports.postTopCyclist = postTopCyclist;

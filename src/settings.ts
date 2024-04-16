@@ -8,4 +8,4 @@ const settings = {
     SLACK_LOCALE: "fi-FI"
 }
 
-module.exports = settings;
+export default settings;
