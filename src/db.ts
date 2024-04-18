@@ -14,11 +14,19 @@ type WeeklyStats = TeamMemberStats & {
     week: number;
 };
 
-const client = new MongoClient(settings.MONGO_DB_URI);
+let client: MongoClient = null;
+
+function getClient() {
+    if (client == null) {
+        client = new MongoClient(settings.MONGO_DB_URI);
+    }
+    return client;
+}
 
 const weeklyStatsCollection = "weekly_statistics";
 
 async function withDb(callback: (db: Db) => Promise<any>) {
+    const client = getClient();
     await client.connect();
     let ret: any;
     try {
