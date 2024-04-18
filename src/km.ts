@@ -1,4 +1,5 @@
 const axios = require("axios");
+import { getISOWeek, subDays } from "date-fns";
 import {
     getTeamStatistics,
     kilometrikisaSession,
@@ -7,6 +8,7 @@ import {
     TeamSeries,
 } from "kilometrikisa-client";
 import settings from "./settings";
+import * as DBApi from "./db";
 
 const seriesNames = { [TeamSeries.SMALL]: "Piensarja", [TeamSeries.EBIKE]: "Sähkösarja" };
 
@@ -20,9 +22,19 @@ type LoggingContext = {
     error: (message: string) => void;
 };
 
+type TopCyclist = {
+    name: string;
+    adjustedDistance: number;
+    totalDistance: number;
+    distanceByRegularBike: number;
+    distanceByEbike: number;
+};
+
+function yearWeek(when: Date) {
+    return [when.getFullYear(), getISOWeek(when)];
+}
+
 async function postToSlack(messageData: MessageData) {
-    console.log(JSON.stringify(messageData));
-    console.log(settings.SLACK_WEBHOOK_URL);
     if (!settings.SLACK_WEBHOOK_URL) {
         console.warn("No Slack webhook URL set, not posting message");
         return;
@@ -68,10 +80,9 @@ function formatTeamData(teamData: TeamStatistics[]): MessageData {
     };
 }
 
-function formatTopCyclistMessage(topCyclist) {
-    const totalKm = topCyclist.distanceByRegularBike + topCyclist.distanceByEbike;
+function formatTopCyclistMessage(topCyclist: TopCyclist) {
     return {
-        text: `Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(totalKm)} km! :tada:`,
+        text: `Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:`,
     };
 }
 
@@ -98,38 +109,99 @@ export async function postTeamStats(context: LoggingContext) {
     return teamData;
 }
 
-export async function postTopCyclist() {
+async function getLatestTeamStats(team_slug: string, contest_slug: string) {
     const session = await kilometrikisaSession({
         username: settings.KMKISA_USERNAME,
         password: settings.KMKISA_PASSWORD,
     });
-    const contest = await getLatestContest();
-    const currentStats = await session.getTeamMemberStatistics(settings.TEAM_SLUG, contest.slug);
-    //console.log(JSON.stringify(currentStats));
-    // fetch previous stats from somewhere
-    let previousStats = {};
-    // save currentStats somewhere
-    const topCyclist = getTopCyclist(currentStats, previousStats);
-    console.log(topCyclist);
-    await postToSlack(formatTopCyclistMessage(topCyclist));
+    return await session.getTeamMemberStatistics(team_slug, contest_slug);
 }
 
-function getTopCyclist(currentStats, previousStats) {
+export async function postTopCyclist(context: LoggingContext, when?: Date, contest_slug?: string) {
+    if (contest_slug == null) {
+        contest_slug = (await getLatestContest()).slug;
+    }
+    if (when == null) {
+        when = new Date();
+    }
+    const [year, week] = yearWeek(when);
+    const [prevYear, prevWeek] = yearWeek(subDays(when, 7));
+    let topCyclist: TopCyclist;
+
+    try {
+        const currentStats = await DBApi.getWeeklyStats(
+            settings.TEAM_SLUG,
+            contest_slug,
+            year,
+            week,
+        );
+        if (currentStats == null) {
+            context.warn(`No stats found for current week ${year}-${week}`);
+            return;
+        }
+        const previousStats = await DBApi.getWeeklyStats(
+            settings.TEAM_SLUG,
+            contest_slug,
+            prevYear,
+            prevWeek,
+        );
+        topCyclist = getTopCyclist(currentStats, previousStats);
+    } catch (e) {
+        context.error("Failed to get top cyclist from weekly stats");
+        context.error(e);
+        return;
+    }
+
+    if (topCyclist == null) {
+        context.warn("No top cyclist found");
+        return;
+    }
+
+    context.log(JSON.stringify(topCyclist));
+
+    try {
+        await postToSlack(formatTopCyclistMessage(topCyclist));
+    } catch (e) {
+        context.error("Failed to post to Slack");
+        context.error(e);
+    }
+}
+
+export async function storeWeeklyStats(context: LoggingContext) {
+    const team_slug = settings.TEAM_SLUG;
+    let contest;
+    let stats;
+    try {
+        contest = await getLatestContest();
+        stats = await getLatestTeamStats(team_slug, contest.slug);
+    } catch (e) {
+        context.error("Failed to get latest team statistics");
+        context.error(e);
+        return;
+    }
+    const now = new Date();
+    DBApi.storeWeeklyStats(team_slug, contest.slug, now.getFullYear(), getISOWeek(now), stats);
+}
+
+// what is this shit?
+function getName(element): string {
+    const name = element.fullName || element.name;
+    if (typeof name === "string" || name instanceof String) {
+        return name.toString();
+    } else {
+        // "name":{"subItem":"Janis Petke","value":""}
+        return name.subItem;
+    }
+}
+
+function getTopCyclist(
+    currentStats: DBApi.TeamMemberStats,
+    previousStats: DBApi.TeamMemberStats,
+): TopCyclist {
     let regKmByName: { [key: string]: number } = {};
     let eKmByName: { [key: string]: number } = {};
-    let topCyclist;
+    let topCyclist: string;
     let topDistance = 0;
-
-    // what is this shit?
-    function getName(element) {
-        const name = element.fullName || element.name;
-        if (typeof name === "string" || name instanceof String) {
-            return name;
-        } else {
-            // "name":{"subItem":"Janis Petke","value":""}
-            return name.subItem;
-        }
-    }
 
     currentStats.distanceStatistics.forEach((el) => {
         const name = getName(el);
@@ -137,26 +209,34 @@ function getTopCyclist(currentStats, previousStats) {
         eKmByName[name] = el.distanceByEbike || 0;
     });
 
-    if (previousStats && previousStats.distanceStatistics) {
-        previousStats.distanceStatistics.forEach((el) => {
-            const name = getName(el);
-            regKmByName[name] = regKmByName[name] - el.distanceByRegularBike;
-            eKmByName[name] = eKmByName[name] - el.distanceByEbike;
+    // subtract previous distance, getting the weekly increase
+    if (previousStats?.distanceStatistics) {
+        previousStats.distanceStatistics.forEach((prev) => {
+            const name = getName(prev);
+            regKmByName[name] = regKmByName[name] - (prev.distanceByRegularBike || 0);
+            eKmByName[name] = eKmByName[name] - (prev.distanceByEbike || 0);
         });
     }
 
     // secret rating algorithm
     for (const [name, km] of Object.entries(regKmByName)) {
-        const dist = km + eKmByName[name] / 2;
+        // TODO:
+        // - just the total distance increase?
+        // - relative increase?
+        // - number of cycling days?
+        const dist = km + (eKmByName[name] || 0) / 2;
         if (dist > topDistance) {
             topCyclist = name;
             topDistance = dist;
         }
     }
-    return {
-        name: topCyclist,
-        adjustedDistance: topDistance,
-        distanceByRegularBike: regKmByName[topCyclist],
-        distanceByEbike: eKmByName[topCyclist],
-    };
+    return topCyclist != null
+        ? {
+              name: topCyclist,
+              adjustedDistance: topDistance,
+              totalDistance: regKmByName[topCyclist] + eKmByName[topCyclist],
+              distanceByRegularBike: regKmByName[topCyclist],
+              distanceByEbike: eKmByName[topCyclist],
+          }
+        : null;
 }
