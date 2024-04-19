@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from "axios";
 import { getISOWeek, subDays } from "date-fns";
 import {
     getTeamStatistics,
@@ -192,8 +192,8 @@ function getTopCyclist(
     currentStats: TeamMemberStats,
     previousStats: TeamMemberStats,
 ): TopCyclist {
-    let regKmByName: { [key: string]: number } = {};
-    let eKmByName: { [key: string]: number } = {};
+    const regKmByName: { [key: string]: number } = {};
+    const eKmByName: { [key: string]: number } = {};
     let topCyclist: string;
     let topDistance = 0;
 

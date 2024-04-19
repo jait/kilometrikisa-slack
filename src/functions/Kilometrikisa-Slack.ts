@@ -1,11 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext, Timer } from "@azure/functions";
 import { lastDayOfISOWeek, subDays } from "date-fns";
-
-require("dotenv").config({ silent: true });
+import * as dotenv from 'dotenv';
 import * as km from "../km";
 
+dotenv.config()
 
-function jsonResponse(body: any): HttpResponseInit {
+function jsonResponse(body): HttpResponseInit {
     return { jsonBody: body || undefined, body: body ? undefined : "fail", status: body ? 200 : 500 };
 };
 

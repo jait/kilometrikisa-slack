@@ -25,7 +25,7 @@ const weeklyStatsCollection = "weekly_statistics";
 export async function withDb<T>(callback: (db: Db) => Promise<T>): Promise<T> {
     const client = getClient();
     await client.connect();
-    let ret: any;
+    let ret;
     try {
         const db = client.db(settings.MONGO_DB_DB);
         ret = await callback(db);
