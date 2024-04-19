@@ -5,3 +5,4 @@
 .env.local
 *.swp
 create_lambda_package.sh
+test
