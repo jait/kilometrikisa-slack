@@ -9,18 +9,10 @@ import {
 } from "kilometrikisa-client";
 import settings from "./settings";
 import * as DBApi from "./db";
+import { LoggingContext, TeamMemberStats, MessageData, Text } from "./types";
 
 const seriesNames = { [TeamSeries.SMALL]: "Piensarja", [TeamSeries.EBIKE]: "Sähkösarja" };
 
-type MessageData = {
-    [key: string]: any;
-};
-
-type LoggingContext = {
-    log: (message: string) => void;
-    warn: (message: string) => void;
-    error: (message: string) => void;
-};
 
 type TopCyclist = {
     name: string;
@@ -46,12 +38,7 @@ function formatFloat(value: number) {
     return value.toLocaleString(settings.SLACK_LOCALE);
 }
 
-type MessageField = {
-    type: string;
-    text: string;
-};
-
-function formatSeries(seriesData: TeamStatistics): MessageField | null {
+function formatSeries(seriesData: TeamStatistics): Text | null {
     const seriesName = seriesNames[seriesData.series];
     if (!seriesName) {
         return null;
@@ -80,7 +67,7 @@ function formatTeamData(teamData: TeamStatistics[]): MessageData {
     };
 }
 
-function formatTopCyclistMessage(topCyclist: TopCyclist) {
+function formatTopCyclistMessage(topCyclist: TopCyclist): MessageData {
     return {
         text: `Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:`,
     };
@@ -196,8 +183,8 @@ function getName(element): string {
 }
 
 function getTopCyclist(
-    currentStats: DBApi.TeamMemberStats,
-    previousStats: DBApi.TeamMemberStats,
+    currentStats: TeamMemberStats,
+    previousStats: TeamMemberStats,
 ): TopCyclist {
     let regKmByName: { [key: string]: number } = {};
     let eKmByName: { [key: string]: number } = {};

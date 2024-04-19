@@ -1,11 +1,7 @@
 import { MongoClient, Db, Condition } from "mongodb";
 import settings from "./settings";
-import { TeamMemberDistanceStatistics, TeamMemberTimeStatistics } from "kilometrikisa-client";
+import { TeamMemberStats } from "./types";
 
-export type TeamMemberStats = {
-    distanceStatistics: TeamMemberDistanceStatistics[];
-    timeStatistics: TeamMemberTimeStatistics[];
-};
 
 type WeeklyStats = TeamMemberStats & {
     team_slug: string;
