@@ -116,23 +116,27 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
     let topCyclist: TopCyclist;
 
     try {
-        const currentStats = await DBApi.getWeeklyStats(
-            settings.TEAM_SLUG,
-            contest_slug,
-            year,
-            week,
-        );
-        if (currentStats == null) {
-            context.warn(`No stats found for week ${year}-${week} in ${contest_slug}`);
-            return;
-        }
-        const previousStats = await DBApi.getWeeklyStats(
-            settings.TEAM_SLUG,
-            contest_slug,
-            prevYear,
-            prevWeek,
-        );
-        topCyclist = getTopCyclist(currentStats, previousStats);
+        topCyclist = await DBApi.withDb(async (db) => {
+            const currentStats = await DBApi.getWeeklyStats(
+                db,
+                settings.TEAM_SLUG,
+                contest_slug,
+                year,
+                week,
+            );
+            if (currentStats == null) {
+                context.warn(`No stats found for week ${year}-${week} in ${contest_slug}`);
+                return;
+            }
+            const previousStats = await DBApi.getWeeklyStats(
+                db,
+                settings.TEAM_SLUG,
+                contest_slug,
+                prevYear,
+                prevWeek,
+            );
+            return getTopCyclist(currentStats, previousStats);
+        });
     } catch (e) {
         context.error("Failed to get top cyclist from weekly stats");
         context.error(e);
@@ -157,18 +161,20 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
 
 export async function storeWeeklyStats(context: LoggingContext) {
     const team_slug = settings.TEAM_SLUG;
-    let contest;
-    let stats;
+    let contest_slug: string;
+    let stats: TeamMemberStats;
     try {
-        contest = await getLatestContest();
-        stats = await getLatestTeamStats(team_slug, contest.slug);
+        contest_slug = (await getLatestContest()).slug;
+        stats = await getLatestTeamStats(team_slug, contest_slug);
     } catch (e) {
         context.error("Failed to get latest team statistics");
         context.error(e);
         return;
     }
     const now = new Date();
-    DBApi.storeWeeklyStats(team_slug, contest.slug, now.getFullYear(), getISOWeek(now), stats);
+    await DBApi.withDb(async (db) => {
+        return await DBApi.storeWeeklyStats(db, team_slug, contest_slug, now.getFullYear(), getISOWeek(now), stats);
+    });
 }
 
 // what is this shit?

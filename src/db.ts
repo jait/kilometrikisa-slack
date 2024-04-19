@@ -1,4 +1,4 @@
-import { MongoClient, Db, Condition } from "mongodb";
+import { MongoClient, Db, Condition, Collection } from "mongodb";
 import settings from "./settings";
 import { TeamMemberStats } from "./types";
 
@@ -21,7 +21,8 @@ function getClient() {
 
 const weeklyStatsCollection = "weekly_statistics";
 
-async function withDb(callback: (db: Db) => Promise<any>) {
+// alternatively, we could use "using" from TypeScript 5.2
+export async function withDb<T>(callback: (db: Db) => Promise<T>): Promise<T> {
     const client = getClient();
     await client.connect();
     let ret: any;
@@ -35,32 +36,30 @@ async function withDb(callback: (db: Db) => Promise<any>) {
 }
 
 export async function getWeeklyStats(
+    db: Db,
     team_slug: Condition<string>,
     contest: Condition<string>,
     year: Condition<number>,
     week: Condition<number>,
-): Promise<WeeklyStats> {
-    return withDb(async (db) => {
-        const collection = db.collection(weeklyStatsCollection);
-        return await collection.findOne({ team_slug, contest, year, week });
-    });
+) {
+    const collection: Collection<WeeklyStats> = db.collection(weeklyStatsCollection);
+    return await collection.findOne({ team_slug, contest, year, week });
 }
 
 export async function storeWeeklyStats(
+    db: Db,
     team_slug: string,
     contest: string,
     year: number,
     week: number,
     stats: TeamMemberStats,
 ) {
-    return withDb(async (db) => {
-        const collection = db.collection(weeklyStatsCollection);
-        return await collection.insertOne({
-            ...stats,
-            team_slug,
-            contest,
-            year,
-            week,
-        });
+    const collection = db.collection(weeklyStatsCollection);
+    return await collection.insertOne({
+        ...stats,
+        team_slug,
+        contest,
+        year,
+        week,
     });
 }
