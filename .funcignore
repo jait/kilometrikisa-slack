@@ -2,9 +2,15 @@
 *.ts
 .git*
 .vscode
+.husky
+.DS_Store
 __azurite_db*__.json
 __blobstorage__
 __queuestorage__
 local.settings.json
 test
 tsconfig.json
+*lambda.zip
+.zipignore
+*.local
+test
