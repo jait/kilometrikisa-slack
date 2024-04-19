@@ -24,7 +24,7 @@ type LoggingContext = {
 
 type TopCyclist = {
     name: string;
-    adjustedDistance: number;
+    score: number;
     totalDistance: number;
     distanceByRegularBike: number;
     distanceByEbike: number;
@@ -136,7 +136,7 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
             week,
         );
         if (currentStats == null) {
-            context.warn(`No stats found for current week ${year}-${week}`);
+            context.warn(`No stats found for week ${year}-${week} in ${contest_slug}`);
             return;
         }
         const previousStats = await DBApi.getWeeklyStats(
@@ -165,6 +165,7 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
         context.error("Failed to post to Slack");
         context.error(e);
     }
+    return topCyclist;
 }
 
 export async function storeWeeklyStats(context: LoggingContext) {
@@ -233,7 +234,7 @@ function getTopCyclist(
     return topCyclist != null
         ? {
               name: topCyclist,
-              adjustedDistance: topDistance,
+              score: topDistance,
               totalDistance: regKmByName[topCyclist] + eKmByName[topCyclist],
               distanceByRegularBike: regKmByName[topCyclist],
               distanceByEbike: eKmByName[topCyclist],
