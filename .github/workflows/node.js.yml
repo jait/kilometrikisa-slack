@@ -3,6 +3,9 @@
 
 name: Node.js CI
 
+env:
+  HUSKY: 0
+
 on: [push]
 
 jobs:

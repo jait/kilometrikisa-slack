@@ -9,7 +9,7 @@
     "prestart": "npm run clean && npm run build",
     "start": "func start",
     "test": "jest",
-    "prepare": "husky install",
+    "prepare": "node .husky/install.mjs",
     "lint": "eslint src"
   },
   "dependencies": {
