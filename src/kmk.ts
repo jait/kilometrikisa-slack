@@ -188,7 +188,7 @@ function getName(element): string {
     }
 }
 
-function getTopCyclist(
+export function getTopCyclist(
     currentStats: TeamMemberStats,
     previousStats: TeamMemberStats,
 ): TopCyclist {

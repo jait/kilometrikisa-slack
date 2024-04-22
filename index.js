@@ -1,5 +1,5 @@
 require("dotenv").config();
-const km = require("./dist/src/km");
+const km = require("./dist/src/kmk");
 
 // AWS Lambda entrypoint
 exports.handler = async function (event, context) {
