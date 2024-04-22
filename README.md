@@ -24,6 +24,9 @@ You should run `npm prune --omit=dev` before publishing to avoid bundling dev de
 
 For configuraton, see `settings.ts` file.
 
+Please note that deploying Linux Consumption Plan Apps with `func azure functionapp publish`
+is incompatible with publishing from GitHub actions. You must use either or.
+
 ## Running in production
 
 The function runs daily/weekly at configured times (see Kilometrikisa-Slack.ts).
