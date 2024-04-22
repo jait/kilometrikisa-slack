@@ -20,6 +20,7 @@ To publish to the production slot, run
 `func azure functionapp publish <function name>`
 
 To publish to another slot, add `--slot <slot-name>` argument to the command.
+You should run `npm prune --omit=dev` before publishing to avoid bundling dev dependencies.
 
 For configuraton, see `settings.ts` file.
 
