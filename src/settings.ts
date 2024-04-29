@@ -5,7 +5,7 @@ const settings = {
     KMKISA_PASSWORD: process.env.KMKISA_PASSWORD,
     SLACK_LOCALE: "fi-FI",
     MONGO_DB_URI: process.env.MONGO_DB_URI,
-    MONGO_DB_DB: "kilometrikisa",
+    MONGO_DB_DB: process.env.MONGO_DB_DB,
 };
 
 export default settings;
