@@ -188,49 +188,69 @@ function getName(element): string {
     }
 }
 
+type Scoring = {
+    prevRegKm?: number;
+    prevEKm?: number;
+    regKm: number; // increase
+    eKm: number; // increase
+    score: number;
+};
+
 export function getTopCyclist(
     currentStats: TeamMemberStats,
     previousStats: TeamMemberStats,
 ): TopCyclist {
-    const regKmByName: { [key: string]: number } = {};
-    const eKmByName: { [key: string]: number } = {};
     let topCyclist: string;
     let topDistance = 0;
+    let topScore = 0;
+    const scores: { [name: string]: Scoring } = {};
 
     currentStats.distanceStatistics.forEach((el) => {
         const name = getName(el);
-        regKmByName[name] = el.distanceByRegularBike || 0;
-        eKmByName[name] = el.distanceByEbike || 0;
+        scores[name] = {
+            regKm: el.distanceByRegularBike || 0,
+            eKm: el.distanceByEbike || 0,
+            prevRegKm: 0,
+            prevEKm: 0,
+            score: 0,
+        };
     });
 
     // subtract previous distance, getting the weekly increase
     if (previousStats?.distanceStatistics) {
         previousStats.distanceStatistics.forEach((prev) => {
             const name = getName(prev);
-            regKmByName[name] = regKmByName[name] - (prev.distanceByRegularBike || 0);
-            eKmByName[name] = eKmByName[name] - (prev.distanceByEbike || 0);
+            const regKm = prev.distanceByRegularBike || 0;
+            const eKm = prev.distanceByEbike || 0;
+            scores[name].prevRegKm = regKm;
+            scores[name].prevEKm = eKm;
+            scores[name].regKm = scores[name].regKm - regKm;
+            scores[name].eKm = scores[name].eKm - eKm;
         });
     }
 
     // secret rating algorithm
-    for (const [name, km] of Object.entries(regKmByName)) {
+    for (const [name, scoring] of Object.entries(scores)) {
         // TODO:
         // - just the total distance increase?
         // - relative increase?
         // - number of cycling days?
-        const dist = km + (eKmByName[name] || 0) / 2;
-        if (dist > topDistance) {
+        const dist = scoring.regKm + scoring.eKm / 2;
+        const prevDist = scoring.prevRegKm + scoring.prevEKm / 2
+        scoring.score = prevDist > 0 ? dist / prevDist : dist;
+        if (scoring.score > topScore) {
             topCyclist = name;
+            topScore = scoring.score;
             topDistance = dist;
         }
     }
     return topCyclist != null
         ? {
               name: topCyclist,
-              score: topDistance,
-              totalDistance: regKmByName[topCyclist] + eKmByName[topCyclist],
-              distanceByRegularBike: regKmByName[topCyclist],
-              distanceByEbike: eKmByName[topCyclist],
+              score: scores[topCyclist].score,
+              totalDistance: scores[topCyclist].regKm + scores[topCyclist].eKm,
+              distanceByRegularBike: scores[topCyclist].regKm,
+              distanceByEbike: scores[topCyclist].eKm,
           }
         : null;
 }

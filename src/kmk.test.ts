@@ -63,22 +63,45 @@ describe('kmk', () => {
   test('topCyclist regular wins ebike', () => {
     const curr: TeamMemberStats = {
       distanceStatistics: [
-        {distanceByRegularBike: 0, distanceByEbike: 20, totalCyclingDays: 2, totalDistance: 20, placement: 1, name: "biker1" },
-        {distanceByRegularBike: 19, distanceByEbike: 0, totalCyclingDays: 2, totalDistance: 19, placement: 2, name: "biker2" },
+        {distanceByRegularBike: 0, distanceByEbike: 12, totalCyclingDays: 2, totalDistance: 12, placement: 1, name: "biker1" },
+        {distanceByRegularBike: 11, distanceByEbike: 0, totalCyclingDays: 2, totalDistance: 11, placement: 2, name: "biker2" },
       ],
       timeStatistics: [],
     };
     const prev: TeamMemberStats = {
       distanceStatistics: [
-        {distanceByRegularBike: 0, distanceByEbike: 1, totalCyclingDays: 1, totalDistance: 1, placement: 1, name: "biker1" },
+        {distanceByRegularBike: 0, distanceByEbike: 2, totalCyclingDays: 1, totalDistance: 2, placement: 1, name: "biker1" },
         {distanceByRegularBike: 1, distanceByEbike: 0, totalCyclingDays: 1, totalDistance: 1, placement: 2, name: "biker2" },
       ],
       timeStatistics: [],
     };
     expect(kmk.getTopCyclist(curr, prev)).toMatchObject({
       name: 'biker2',
-      totalDistance: 18,
-      distanceByRegularBike: 18,
+      totalDistance: 10,
+      distanceByRegularBike: 10,
+      distanceByEbike: 0,
+    });
+  });
+
+  test('relative increase wins absolute', () => {
+    const curr: TeamMemberStats = {
+      distanceStatistics: [
+        {distanceByRegularBike: 200, distanceByEbike: 0, totalCyclingDays: 2, totalDistance: 200, placement: 1, name: "biker1" },
+        {distanceByRegularBike: 100, distanceByEbike: 0, totalCyclingDays: 2, totalDistance: 100, placement: 2, name: "biker2" },
+      ],
+      timeStatistics: [],
+    };
+    const prev: TeamMemberStats = {
+      distanceStatistics: [
+        {distanceByRegularBike: 100, distanceByEbike: 0, totalCyclingDays: 1, totalDistance: 100, placement: 1, name: "biker1" },
+        {distanceByRegularBike: 40, distanceByEbike: 0, totalCyclingDays: 1, totalDistance: 40, placement: 2, name: "biker2" },
+      ],
+      timeStatistics: [],
+    };
+    expect(kmk.getTopCyclist(curr, prev)).toMatchObject({
+      name: 'biker2',
+      totalDistance: 60,
+      distanceByRegularBike: 60,
       distanceByEbike: 0,
     });
   });
