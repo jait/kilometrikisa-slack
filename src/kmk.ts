@@ -69,7 +69,7 @@ function formatTeamData(teamData: TeamStatistics[]): MessageData {
 
 function formatTopCyclistMessage(topCyclist: TopCyclist): MessageData {
     return {
-        text: `Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:`,
+        text: `:sports_medal: Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:`,
     };
 }
 
