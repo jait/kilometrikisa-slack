@@ -6,6 +6,7 @@ import {
     getLatestContest,
     TeamStatistics,
     TeamSeries,
+    TeamMemberDistanceStatistics,
 } from "kilometrikisa-client";
 import settings from "./settings";
 import * as DBApi from "./db";
@@ -196,6 +197,16 @@ type Scoring = {
     score: number;
 };
 
+function createScoring(stats: TeamMemberDistanceStatistics = null): Scoring {
+    return {
+        regKm: stats?.distanceByRegularBike || 0,
+        eKm: stats?.distanceByEbike || 0,
+        prevRegKm: 0,
+        prevEKm: 0,
+        score: 0,
+    };
+}
+
 export function getTopCyclist(
     currentStats: TeamMemberStats,
     previousStats: TeamMemberStats,
@@ -207,13 +218,7 @@ export function getTopCyclist(
 
     currentStats.distanceStatistics.forEach((el) => {
         const name = getName(el);
-        scores[name] = {
-            regKm: el.distanceByRegularBike || 0,
-            eKm: el.distanceByEbike || 0,
-            prevRegKm: 0,
-            prevEKm: 0,
-            score: 0,
-        };
+        scores[name] = createScoring(el);
     });
 
     // subtract previous distance, getting the weekly increase
@@ -222,6 +227,9 @@ export function getTopCyclist(
             const name = getName(prev);
             const regKm = prev.distanceByRegularBike || 0;
             const eKm = prev.distanceByEbike || 0;
+            if (scores[name] == null) {
+                scores[name] = createScoring();
+            }
             scores[name].prevRegKm = regKm;
             scores[name].prevEKm = eKm;
             scores[name].regKm = scores[name].regKm - regKm;
