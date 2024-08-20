@@ -212,7 +212,7 @@ export function getTopCyclist(
     previousStats: TeamMemberStats,
 ): TopCyclist {
     let topCyclist: string;
-    let topDistance = 0;
+    // let topDistance = 0;
     let topScore = 0;
     const scores: { [name: string]: Scoring } = {};
 
@@ -249,7 +249,7 @@ export function getTopCyclist(
         if (scoring.score > topScore) {
             topCyclist = name;
             topScore = scoring.score;
-            topDistance = dist;
+            // topDistance = dist;
         }
     }
     return topCyclist != null
