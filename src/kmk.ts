@@ -11,8 +11,14 @@ import {
 import settings from "./settings";
 import * as DBApi from "./db";
 import { LoggingContext, TeamMemberStats, MessageData, Text } from "./types";
+import { getChatReport } from "./chat";
 
-const seriesNames = { [TeamSeries.SMALL]: "Piensarja", [TeamSeries.EBIKE]: "Sähkösarja" };
+const seriesNames = {
+    [TeamSeries.SMALL]: "Piensarja",
+    [TeamSeries.EBIKE]: "Sähkösarja",
+    [TeamSeries.LARGE]: "Suursarja",
+    [TeamSeries.POWER]: "Tehosarja",
+};
 
 
 type TopCyclist = {
@@ -40,7 +46,7 @@ function formatFloat(value: number) {
 }
 
 function formatSeries(seriesData: TeamStatistics): Text | null {
-    const seriesName = seriesNames[seriesData.series];
+    const seriesName = seriesNames[seriesData.series as TeamSeries];
     if (!seriesName) {
         return null;
     }
@@ -105,7 +111,7 @@ async function getLatestTeamStats(team_slug: string, contest_slug: string) {
     return await session.getTeamMemberStatistics(team_slug, contest_slug);
 }
 
-export async function postTopCyclist(context: LoggingContext, when?: Date, contest_slug?: string) {
+export async function postWeeklyStats(context: LoggingContext, when?: Date, contest_slug?: string) {
     if (contest_slug == null) {
         contest_slug = (await getLatestContest()).slug;
     }
@@ -114,10 +120,11 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
     }
     const [year, week] = yearWeek(when);
     const [prevYear, prevWeek] = yearWeek(subDays(when, 7));
-    let topCyclist: TopCyclist;
+    let topCyclist: TopCyclist | null;
+    let chatReport: string;
 
     try {
-        topCyclist = await DBApi.withDb(async (db) => {
+        const {currentStats, previousStats} = await DBApi.withDb(async (db) => {
             const currentStats = await DBApi.getWeeklyStats(
                 db,
                 settings.TEAM_SLUG,
@@ -127,7 +134,7 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
             );
             if (currentStats == null) {
                 context.warn(`No stats found for week ${year}-${week} in ${contest_slug}`);
-                return;
+                return null;
             }
             const previousStats = await DBApi.getWeeklyStats(
                 db,
@@ -136,8 +143,13 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
                 prevYear,
                 prevWeek,
             );
-            return getTopCyclist(currentStats, previousStats);
+            return { currentStats, previousStats };
         });
+        topCyclist = getTopCyclist(currentStats, previousStats);
+        if (currentStats && previousStats) {
+            chatReport = await getChatReport(JSON.stringify(currentStats), JSON.stringify(previousStats));
+            context.log(chatReport);
+        }
     } catch (e) {
         context.error("Failed to get top cyclist from weekly stats");
         context.error(e);
@@ -153,6 +165,9 @@ export async function postTopCyclist(context: LoggingContext, when?: Date, conte
 
     try {
         await postToSlack(formatTopCyclistMessage(topCyclist));
+        if (chatReport) {
+            await postToSlack({ text: chatReport });
+        }
     } catch (e) {
         context.error("Failed to post to Slack");
         context.error(e);
@@ -197,7 +212,7 @@ type Scoring = {
     score: number;
 };
 
-function createScoring(stats: TeamMemberDistanceStatistics = null): Scoring {
+function createScoring(stats?: TeamMemberDistanceStatistics): Scoring {
     return {
         regKm: stats?.distanceByRegularBike || 0,
         eKm: stats?.distanceByEbike || 0,
@@ -209,9 +224,9 @@ function createScoring(stats: TeamMemberDistanceStatistics = null): Scoring {
 
 export function getTopCyclist(
     currentStats: TeamMemberStats,
-    previousStats: TeamMemberStats,
-): TopCyclist {
-    let topCyclist: string;
+    previousStats: TeamMemberStats | null,
+): TopCyclist | null {
+    let topCyclist: string | undefined;
     // let topDistance = 0;
     let topScore = 0;
     const scores: { [name: string]: Scoring } = {};
