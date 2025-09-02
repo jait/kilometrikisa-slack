@@ -10,7 +10,7 @@ type WeeklyStats = TeamMemberStats & {
     week: number;
 };
 
-let client: MongoClient = null;
+let client: MongoClient | null = null;
 
 function getClient() {
     if (client == null) {

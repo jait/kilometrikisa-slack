@@ -25,7 +25,7 @@ export async function weekly(
 ): Promise<HttpResponseInit> {
     context.log(`Http function processed request for url "${request.url}"`);
 
-    const ret = await kmk.postTopCyclist(context, lastDayOfISOWeek(subDays(new Date(), 7)));
+    const ret = await kmk.postWeeklyStats(context, lastDayOfISOWeek(subDays(new Date(), 7)));
     return jsonResponse(ret);
 }
 
@@ -42,7 +42,7 @@ export async function storeWeeklyStats(timer: Timer, context: InvocationContext)
 export async function postWeeklyStats(timer: Timer, context: InvocationContext): Promise<void> {
     context.log("Posting weekly statistics");
     // when = previous week's Sunday
-    await kmk.postTopCyclist(context, lastDayOfISOWeek(subDays(new Date(), 7)));
+    await kmk.postWeeklyStats(context, lastDayOfISOWeek(subDays(new Date(), 7)));
 }
 
 app.http("daily", {
@@ -59,7 +59,7 @@ app.http("weekly", {
 
 app.timer("postDailyStats", {
     schedule: "0 0 6 * 4-9 1-5",
-    //schedule: "0 30 6 * 5-9 1-5",
+    //schedule: "0 0 6 * 5-9 1-5",
     handler: dailyStats,
 });
 

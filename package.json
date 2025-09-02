@@ -14,11 +14,13 @@
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
+    "@azure/openai": "^2.0.0",
     "axios": "^1.6.8",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "kilometrikisa-client": "^0.13.4",
-    "mongodb": "^6.5.0"
+    "mongodb": "^6.5.0",
+    "openai": "^5.16.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
