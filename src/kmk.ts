@@ -11,7 +11,7 @@ import {
 import settings from "./settings";
 import * as DBApi from "./db";
 import { LoggingContext, TeamMemberStats, MessageData, Text } from "./types";
-import { getChatReport } from "./chat";
+import { getChatPraise, getChatReport } from "./chat";
 
 const seriesNames = {
     [TeamSeries.SMALL]: "Piensarja",
@@ -74,9 +74,9 @@ function formatTeamData(teamData: TeamStatistics[]): MessageData {
     };
 }
 
-function formatTopCyclistMessage(topCyclist: TopCyclist): MessageData {
+function formatTopCyclistMessage(topCyclist: TopCyclist, praise?: string): MessageData {
     return {
-        text: `:sports_medal: Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:`,
+        text: `:sports_medal: Viikon polokija on *${topCyclist.name}*, jolle matkaa kertyi yhteensä ${formatFloat(topCyclist.totalDistance)} km! :tada:` + (praise ? `\n${praise}` : ''),
     };
 }
 
@@ -148,10 +148,9 @@ export async function postWeeklyStats(context: LoggingContext, when?: Date, cont
         topCyclist = getTopCyclist(currentStats, previousStats);
         if (currentStats && previousStats) {
             chatReport = await getChatReport(JSON.stringify(currentStats), JSON.stringify(previousStats));
-            context.log(chatReport);
         }
     } catch (e) {
-        context.error("Failed to get top cyclist from weekly stats");
+        context.error("Failed to get top cyclist or chat report from weekly stats");
         context.error(e);
         return;
     }
@@ -163,8 +162,16 @@ export async function postWeeklyStats(context: LoggingContext, when?: Date, cont
 
     context.log(JSON.stringify(topCyclist));
 
+    let chatPraise: string;
     try {
-        await postToSlack(formatTopCyclistMessage(topCyclist));
+        chatPraise = await getChatPraise(topCyclist.name);
+    } catch (e) {
+        context.error("Failed to get chat praise");
+        context.error(e);
+    }
+
+    try {
+        await postToSlack(formatTopCyclistMessage(topCyclist, chatPraise));
         if (chatReport) {
             await postToSlack({ text: chatReport });
         }
